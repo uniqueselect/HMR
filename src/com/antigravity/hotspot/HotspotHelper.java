@@ -1322,7 +1322,7 @@ public class HotspotHelper {
         String apSubnetPrefix = (apIp.contains(".")) ? apIp.substring(0, apIp.lastIndexOf('.') + 1) : "192.168.43.";
 
         // 1. Primary Discovery: Read Linux kernel ARP bindings from /proc/net/arp
-        // (Guaranteed to discover connected clients on Tecno Pova LD7j, MediaTek, Qualcomm, Samsung, GSIs)
+        // (Guaranteed to discover connected clients across MediaTek, Qualcomm, Samsung, GSIs)
         File arpFile = new File("/proc/net/arp");
         if (arpFile.exists()) {
             try (BufferedReader br = new BufferedReader(new FileReader(arpFile))) {

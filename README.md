@@ -190,8 +190,8 @@ su -c hotspot-ctl logcat
 ### Q2: Why did we build our own DEX root helper (`hotspot_helper.jar`)?
 Android 11 tightened access to `WifiManager.setSoftApConfiguration()` by marking it `@hide` and `@SystemApi`. Standard shell commands like `cmd wifi` do not expose parameters for hidden SSIDs, band switching, or client caps. `hotspot_helper.jar` runs inside `app_process` with root UID (0) and uses reflection to access the official `SoftApConfiguration.Builder` API directly.
 
-### Q3: How does disconnect detection work on MediaTek and OEM devices?
-On stock OEM ROMs and Project Treble GSIs (especially MediaTek Helio devices like Tecno Pova LD7j), standard tools like `iw dev <iface> station dump` are unsupported by proprietary SoftAP drivers. HMR uses an intelligent dual-source pipeline:
+### Q3: How does disconnect detection work on MediaTek, Qualcomm, and OEM devices?
+On stock OEM ROMs and Project Treble GSIs (where vendor-proprietary Wi-Fi chipsets often lack `iw dev station dump` support), HMR uses an intelligent dual-source pipeline:
 1. Reads `/proc/net/arp` and `ip neigh show` for active IP-to-MAC mappings.
 2. Filters out stale entries (`FAILED`, `INCOMPLETE`, `00:00:00:00:00:00`).
 3. Evaluates `hostapd: AP-STA-DISCONNECTED` logcat events to immediately purge disconnected clients and decrement active device counters.
