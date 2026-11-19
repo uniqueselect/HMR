@@ -10,8 +10,8 @@ android {
         applicationId "com.uniqueselect.hmr"
         minSdk 30
         targetSdk 34
-        versionCode 124
-        versionName "1.2.4"
+        versionCode 127
+        versionName "1.2.7"
     }
 
     buildTypes {

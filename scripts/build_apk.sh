@@ -6,7 +6,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 APP_DIR="$ROOT_DIR/app"
 BUILD_DIR="$ROOT_DIR/build"
-OUT_APK="$ROOT_DIR/HMR-v1.2.4.apk"
+KEYSTORE_DIR="$ROOT_DIR/keystore"
+KEYSTORE="$KEYSTORE_DIR/release.jks"
+OUT_APK="$ROOT_DIR/HMR-v1.2.7.apk"
 
 # Resolve Android SDK Tools
 AAPT2="${AAPT2:-$(which aapt2 2>/dev/null || find /tmp/notify-android-sdk/ -name aapt2 2>/dev/null | head -n 1)}"
@@ -56,9 +58,10 @@ cd "$ROOT_DIR"
 # 6. Zipalign
 "$ZIPALIGN" -p -f 4 "$BUILD_DIR/unaligned.apk" "$BUILD_DIR/aligned.apk"
 
-# 7. Generate release key if needed and sign
-if [ ! -f "$BUILD_DIR/release.jks" ]; then
-    keytool -genkeypair -v -keystore "$BUILD_DIR/release.jks" \
+# 7. Ensure persistent release keystore exists and sign
+mkdir -p "$KEYSTORE_DIR"
+if [ ! -f "$KEYSTORE" ]; then
+    keytool -genkeypair -v -keystore "$KEYSTORE" \
         -alias hmr \
         -keyalg RSA \
         -keysize 2048 \
@@ -68,7 +71,7 @@ if [ ! -f "$BUILD_DIR/release.jks" ]; then
         -dname "CN=uniqueselect, OU=Anti-Gravity, O=HMR, L=Global, ST=Global, C=US"
 fi
 
-"$APKSIGNER" sign --ks "$BUILD_DIR/release.jks" \
+"$APKSIGNER" sign --ks "$KEYSTORE" \
     --ks-pass pass:hmrpassword \
     --key-pass pass:hmrpassword \
     --ks-key-alias hmr \

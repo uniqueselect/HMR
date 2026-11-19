@@ -187,7 +187,7 @@ function switchTab(targetTabId) {
         }
     });
 
-    // Auto-update connected devices when user views Devices tab
+    // Immediate update when user views Devices tab
     if (targetTabId === "tab-clients" && isRunning) {
         execShell(`${HOTSPOT_CTL} clients`).then(res => {
             if (res.errno === 0 && res.stdout) {
@@ -840,7 +840,7 @@ function renderBlockedClients(macs) {
     blockedListContainer.innerHTML = html;
 }
 
-// Lightweight Connected Device Auto-Poll (Active ONLY when Hotspot is ON)
+// Lightweight Connected Device Auto-Poll (Active whenever Hotspot is ON and App is Visible)
 let clientPollTimer = null;
 let isPollingClients = false;
 
@@ -851,6 +851,7 @@ function startClientAutoPoll() {
     clientPollTimer = setInterval(async () => {
         // Battery saving & quiet guard: only poll if hotspot is ON, page is visible, and no request in-flight
         if (!isRunning || document.hidden || isPollingClients) return;
+
         isPollingClients = true;
         try {
             const res = await execShell(`${HOTSPOT_CTL} clients`);
@@ -881,17 +882,9 @@ function stopClientAutoPoll() {
 document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
         stopClientAutoPoll();
-    } else if (isRunning) {
-        startClientAutoPoll();
-        execShell(`${HOTSPOT_CTL} clients`).then(res => {
-            if (res.errno === 0 && res.stdout) {
-                try {
-                    const data = JSON.parse(res.stdout);
-                    if (data.clients) renderConnectedClients(data.clients);
-                    if (data.ap_ip && isRunning && displayIp) displayIp.textContent = data.ap_ip;
-                } catch (ignored) {}
-            }
-        });
+    } else {
+        // Automatically sync hotspot state whenever app returns to foreground
+        refreshStatus();
     }
 });
 
@@ -1372,6 +1365,6 @@ function escapeHtml(str) {
 // Initial Boot
 window.addEventListener("DOMContentLoaded", () => {
     updateTerminalStatusPills("READY", "idle");
-    logToTerminal("Root Hotspot Manager v1.2.4 initialized. Ready.", "info");
+    logToTerminal("Root Hotspot Manager v1.2.7 initialized. Ready.", "info");
     refreshStatus();
 });

@@ -1,6 +1,10 @@
 package com.uniqueselect.hmr;
 
 import android.app.Activity;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
@@ -22,6 +26,8 @@ import java.util.concurrent.Executors;
 public class MainActivity extends Activity {
     private static final String TAG = "HMR_MainActivity";
     private WebView webView;
+    private KsuBridge ksuBridge;
+    private BroadcastReceiver hotspotStateReceiver;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -37,14 +43,18 @@ public class MainActivity extends Activity {
         }
 
         webView = findViewById(R.id.webView);
+        ksuBridge = new KsuBridge(this);
         setupWebView();
 
-        // Extract assets and request root in background
+        // Listen for OS-level Hotspot state changes (Settings / Quick Settings Tile)
+        registerHotspotBroadcastReceiver();
+
+        // Extract internal assets and prime persistent root session asynchronously
         Executors.newSingleThreadExecutor().execute(new Runnable() {
             @Override
             public void run() {
                 extractAssets();
-                requestRoot();
+                primeRootSession();
             }
         });
     }
@@ -59,8 +69,8 @@ public class MainActivity extends Activity {
         settings.setUseWideViewPort(true);
         settings.setLoadWithOverviewMode(true);
 
-        // Inject KSU WebUI bridge directly matching the KernelSU spec
-        webView.addJavascriptInterface(new KsuBridge(this), "ksu");
+        // Inject persistent root bridge matching KernelSU WebUI specification
+        webView.addJavascriptInterface(ksuBridge, "ksu");
 
         webView.setWebChromeClient(new WebChromeClient());
         webView.setWebViewClient(new WebViewClient() {
@@ -71,8 +81,60 @@ public class MainActivity extends Activity {
             }
         });
 
-        // Load our responsive mobile WebUI
+        // Load responsive mobile WebUI
         webView.loadUrl("file:///android_asset/webroot/index.html");
+    }
+
+    private void registerHotspotBroadcastReceiver() {
+        hotspotStateReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (intent != null && "android.net.wifi.WIFI_AP_STATE_CHANGED".equals(intent.getAction())) {
+                    int state = intent.getIntExtra("wifi_state", -1);
+                    Log.d(TAG, "OS Hotspot state broadcast received: " + state);
+                    // Instant synchronization with the WebUI
+                    notifyHotspotStateChanged();
+                }
+            }
+        };
+
+        IntentFilter filter = new IntentFilter("android.net.wifi.WIFI_AP_STATE_CHANGED");
+        registerReceiver(hotspotStateReceiver, filter);
+    }
+
+    public void notifyHotspotStateChanged() {
+        if (webView != null) {
+            webView.post(new Runnable() {
+                @Override
+                public void run() {
+                    webView.evaluateJavascript("if (typeof refreshStatus === 'function') { refreshStatus(); }", null);
+                }
+            });
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Sync hotspot status immediately whenever returning to the foreground
+        notifyHotspotStateChanged();
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (hotspotStateReceiver != null) {
+            try {
+                unregisterReceiver(hotspotStateReceiver);
+            } catch (Exception ignored) {}
+            hotspotStateReceiver = null;
+        }
+
+        if (ksuBridge != null) {
+            ksuBridge.destroy();
+            ksuBridge = null;
+        }
+
+        super.onDestroy();
     }
 
     private void extractAssets() {
@@ -93,10 +155,10 @@ public class MainActivity extends Activity {
             File jar = new File(binDir, "hotspot_helper.jar");
             jar.setReadable(true, false);
 
-            // Ensure permissions via su if available
-            try {
-                Runtime.getRuntime().exec(new String[]{"su", "-c", "chmod -R 755 " + getFilesDir().getAbsolutePath()});
-            } catch (Exception ignored) {}
+            // Ensure permissions via persistent root shell session
+            if (ksuBridge != null) {
+                ksuBridge.exec("chmod -R 755 " + getFilesDir().getAbsolutePath(), "", null);
+            }
 
             Log.d(TAG, "HMR internal binaries extracted to " + binDir.getAbsolutePath());
         } catch (Exception e) {
@@ -106,10 +168,6 @@ public class MainActivity extends Activity {
 
     private void copyAssetToFile(String assetPath, File outFile) {
         try {
-            if (outFile.exists() && outFile.length() > 0) {
-                // Already extracted and valid
-                return;
-            }
             InputStream in = getAssets().open(assetPath);
             OutputStream out = new FileOutputStream(outFile);
             byte[] buf = new byte[8192];
@@ -125,28 +183,10 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void requestRoot() {
-        try {
-            Process p = Runtime.getRuntime().exec(new String[]{"su", "-c", "id"});
-            int code = p.waitFor();
-            if (code != 0) {
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        Toast.makeText(MainActivity.this, "Root access denied. HMR requires root permissions.", Toast.LENGTH_LONG).show();
-                    }
-                });
-            } else {
-                Log.d(TAG, "Root access granted successfully!");
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Error checking root access", e);
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    Toast.makeText(MainActivity.this, "Root not detected or su binary missing.", Toast.LENGTH_LONG).show();
-                }
-            });
+    private void primeRootSession() {
+        if (ksuBridge != null) {
+            ksuBridge.exec("id", "", null);
+            Log.d(TAG, "Persistent root shell primed and verified");
         }
     }
 

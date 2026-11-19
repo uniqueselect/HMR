@@ -130,7 +130,7 @@ HMR/ (main branch)
 HMR provides two flexible deployment options:
 
 ### Option A: Standalone Root APK (Recommended — No Reboot Needed!)
-1. Download **`HMR-v1.2.4.apk`** from [Releases](https://github.com/uniqueselect/HMR/releases).
+1. Download **`HMR-v1.2.7.apk`** from [Releases](https://github.com/uniqueselect/HMR/releases).
 2. Install the APK normally on your Android device.
 3. Open **Hotspot Manager** from your home screen / app launcher.
 4. Grant Superuser root access when prompted by Magisk, KernelSU, or APatch.

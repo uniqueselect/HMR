@@ -37,7 +37,7 @@ CLASSPATH="$(build_classpath)"
 export CLASSPATH
 
 run_helper() {
-    exec app_process -Djava.class.path="$CLASSPATH" /system/bin com.antigravity.hotspot.HotspotHelper "$@"
+    app_process -Djava.class.path="$CLASSPATH" /system/bin com.antigravity.hotspot.HotspotHelper "$@"
 }
 
 case "$1" in
@@ -140,7 +140,7 @@ case "$1" in
     *)
         DEV_NAME="$(getprop ro.product.model 2>/dev/null || echo "Android Device")"
         AND_VER="$(getprop ro.build.version.release 2>/dev/null || echo "11+")"
-        echo "Root Hotspot Manager v1.2.4 ($DEV_NAME / Android $AND_VER)"
+        echo "Root Hotspot Manager v1.2.7 ($DEV_NAME / Android $AND_VER)"
         echo "Usage: hotspot-ctl <check|status|get|set <json>|set-b64 <b64>|start|stop|restart|backup [path]|restore [path]|restore-original|block <mac>|unblock <mac>|logcat>"
         exit 1
         ;;
