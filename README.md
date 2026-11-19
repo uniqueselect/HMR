@@ -130,24 +130,23 @@ HMR/
 
 ## 🚀 Installation & Getting Started
 
-### 1. Flash the Module
-1. Download the flashable module package from [Releases](https://github.com/uniqueselect/HMR/releases).
-2. Open **Magisk Manager**, **KernelSU**, or **APatch**.
-3. Navigate to **Modules** -> **Install from storage**.
-4. Select the downloaded module ZIP package.
-5. Once installation finishes, **reboot your device**.
-   > [!IMPORTANT]
-   > **A device reboot is required once after flashing or updating the module.** Magisk stages all module installations inside `/data/adb/modules_update/`. The module files (including the WebUI webroot and `/system/bin` binaries) are only committed to `/data/adb/modules/` during early boot.
-   > 
-   > However, **once your device boots up, NO reboots are EVER required when changing Wi-Fi hotspot settings**! All configuration changes apply live in real time.
+HMR provides two flexible deployment options:
 
-### 2. Access the WebUI
-Because Magisk does not render WebUIs natively:
-1. Install **KSUWebUIStandalone** (recommended):
-   - Download the APK from [KsuWebUIStandalone Releases](https://github.com/5ec1cff/KsuWebUIStandalone/releases).
-   - Grant Root access when requested.
-   - Tap **Hotspot Manager** (or tap the **Action** button next to Root Hotspot Manager inside Magisk).
-2. Alternatively, use **MMRL** or open `/data/adb/modules/root_hotspot_manager/webroot/index.html` in an interactive browser preview.
+### Option A: Standalone Root APK (Recommended — No Reboot Needed!)
+1. Download **`HMR-v1.2.4.apk`** from [Releases](https://github.com/uniqueselect/HMR/releases).
+2. Install the APK normally on your Android device.
+3. Open **Hotspot Manager** from your home screen / app launcher.
+4. Grant Superuser root access when prompted by Magisk, KernelSU, or APatch.
+5. **Ready immediately! Zero reboots required.**
+
+---
+
+### Option B: Magisk / KernelSU / APatch Module (WebUI Standard)
+1. Download the flashable module ZIP package from [Releases](https://github.com/uniqueselect/HMR/releases).
+2. Open **Magisk Manager**, **KernelSU**, or **APatch**.
+3. Navigate to **Modules** -> **Install from storage** and flash the ZIP.
+4. Reboot your device to activate the Magisk filesystem mount.
+5. Launch the WebUI via **KSUWebUIStandalone** (`io.github.a13e300.ksuwebui`), **MMRL**, or tap the **Action** button next to HMR in Magisk.
 
 ---
 

@@ -1,0 +1,147 @@
+#!/system/bin/sh
+# Root Hotspot Manager - Pure Vanilla CLI Controller & Service Wrapper
+# Target: Android 11+ AOSP / Project Treble GSI / OEM ROMs
+
+SCRIPT_PATH="$0"
+SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
+MODDIR="$(dirname "$SCRIPT_DIR")"
+
+# Fallback to standard Magisk module path if running directly
+if [ ! -f "$MODDIR/module.prop" ]; then
+    MODDIR="/data/adb/modules/root_hotspot_manager"
+fi
+
+HELPER_JAR="$MODDIR/bin/hotspot_helper.jar"
+BACKUP_ORIGINAL="/data/adb/root_hotspot_original_backup.json"
+
+# Build Android classpath dynamically
+build_classpath() {
+    CP="$HELPER_JAR"
+    for jar in \
+        /apex/com.android.wifi/javalib/framework-wifi.jar \
+        /apex/com.android.wifi/javalib/service-wifi.jar \
+        /apex/com.android.tethering/javalib/framework-tethering.jar \
+        /system/framework/framework-wifi.jar \
+        /system/framework/framework-tethering.jar \
+        /system/framework/framework.jar \
+        /system/framework/core-libart.jar \
+        /system/framework/core-oj.jar; do
+        if [ -f "$jar" ]; then
+            CP="$CP:$jar"
+        fi
+    done
+    echo "$CP"
+}
+
+CLASSPATH="$(build_classpath)"
+export CLASSPATH
+
+run_helper() {
+    exec app_process -Djava.class.path="$CLASSPATH" /system/bin com.antigravity.hotspot.HotspotHelper "$@"
+}
+
+case "$1" in
+    check)
+        run_helper check
+        ;;
+    status)
+        run_helper status
+        ;;
+    clients)
+        run_helper clients
+        ;;
+    get)
+        run_helper get
+        ;;
+    set)
+        shift
+        run_helper set "$@"
+        ;;
+    set-b64)
+        shift
+        run_helper set-b64 "$@"
+        ;;
+    start)
+        run_helper start
+        ;;
+    stop)
+        run_helper stop
+        ;;
+    restart)
+        run_helper restart
+        ;;
+    framework)
+        run_helper framework
+        ;;
+    permissions)
+        run_helper permissions
+        ;;
+    backup)
+        shift
+        run_helper backup "$@"
+        ;;
+    restore)
+        shift
+        run_helper restore "$@"
+        ;;
+    restore-original)
+        run_helper restore "$BACKUP_ORIGINAL"
+        ;;
+    block)
+        shift
+        run_helper block "$@"
+        ;;
+    unblock)
+        shift
+        run_helper unblock "$@"
+        ;;
+    log|logcat)
+        echo "=== ROOT HOTSPOT MANAGER REAL-TIME DIAGNOSTIC ==="
+        echo "Time: $(date)"
+        echo "Device: $(getprop ro.product.model) ($(getprop ro.product.device)) | Android $(getprop ro.build.version.release) (API $(getprop ro.build.version.sdk))"
+        echo ""
+        echo "=== SOFTAP INTERFACE & IP STATUS ==="
+        ip addr show ap0 2>/dev/null || ip link show ap0 2>/dev/null || echo "ap0 interface: not active"
+        ip addr show wlan0 2>/dev/null || ip link show wlan0 2>/dev/null
+        echo ""
+        echo "=== PERSISTED SOFTAP XML CONFIG ==="
+        if [ -f "/data/misc/apexdata/com.android.wifi/WifiConfigStoreSoftAp.xml" ]; then
+            grep -E "SSID|Passphrase|HiddenSSID|SecurityType|Band|Channel" /data/misc/apexdata/com.android.wifi/WifiConfigStoreSoftAp.xml 2>/dev/null
+        else
+            echo "SoftAp XML not found in apexdata"
+        fi
+        echo ""
+        echo "=== CONNECTED CLIENTS (/proc/net/arp) ==="
+        ARP_OUT=$(cat /proc/net/arp 2>/dev/null | grep -v "00:00:00:00:00:00")
+        if [ -n "$ARP_OUT" ]; then
+            echo "$ARP_OUT"
+        else
+            echo "No active client ARP bindings"
+        fi
+        echo ""
+        echo "=== LIVE SYSTEM LOGCAT (WIFI / HOSTAPD / SOFTAP) ==="
+        LOG_LINES=$(logcat -d -t 300 -b main -b system 2>/dev/null | grep -iE "softap|hostapd|wificond|wifiservice|tethering|wlan0|ap0" | tail -n 60)
+        if [ -n "$LOG_LINES" ]; then
+            echo "$LOG_LINES"
+        else
+            echo "(Filtering produced no recent SoftAP events; streaming recent system logcat:)"
+            logcat -d -t 40 2>/dev/null
+        fi
+        echo ""
+        echo "=== KERNEL DMESG (MTK WIFI DRIVER) ==="
+        DMESG_LINES=$(dmesg 2>/dev/null | grep -iE "wlan|mtk|wifi|softap" | tail -n 30)
+        if [ -n "$DMESG_LINES" ]; then
+            echo "$DMESG_LINES"
+        else
+            echo "(Kernel buffer clear or restricted)"
+        fi
+        echo "=== END OF REPORT ==="
+        ;;
+    *)
+        DEV_NAME="$(getprop ro.product.model 2>/dev/null || echo "Android Device")"
+        AND_VER="$(getprop ro.build.version.release 2>/dev/null || echo "11+")"
+        echo "Root Hotspot Manager v1.2.4 ($DEV_NAME / Android $AND_VER)"
+        echo "Usage: hotspot-ctl <check|status|get|set <json>|set-b64 <b64>|start|stop|restart|backup [path]|restore [path]|restore-original|block <mac>|unblock <mac>|logcat>"
+        exit 1
+        ;;
+esac
