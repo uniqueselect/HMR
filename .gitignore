@@ -5,9 +5,13 @@ Thumbs.db
 *~
 .idea/
 .vscode/
+*.iml
 
-# Build artifacts
+# Build & Gradle artifacts
+.gradle/
 build/
+app/build/
 *.class
 *.apk
 *.idsig
+local.properties
