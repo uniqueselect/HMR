@@ -64,8 +64,9 @@ Traditional hotspot manipulation modules often attempt to parse and modify raw X
 
 1. **Zero Raw XML Tampering**:
    - Configuration is manipulated at runtime via Android 11's official `android.net.wifi.SoftApConfiguration` API using reflection on hidden system methods.
-2. **Instant Hot-Reloading (No Reboots Required)**:
-   - Changes made in the UI take effect immediately. SoftAP gracefully restarts or updates on the fly without rebooting Android.
+2. **Runtime Settings Hot-Reloading (No Reboots for Hotspot Changes)**:
+   - Configuration adjustments (SSID, password, band, stealth hidden mode, client caps) take effect dynamically at runtime via live Android framework Binder calls. SoftAP updates seamlessly without rebooting Android.
+   - *(Note: Initial module installation or updating still requires a standard device reboot so Magisk/KernelSU can finalize filesystem mounts).*
 3. **Guaranteed Settings Reversibility**:
    - **Pre-flight Snapshot**: Upon initial flash, `customize.sh` captures your untouched stock Wi-Fi hotspot configuration to `/data/adb/root_hotspot_original_backup.json`.
    - **One-Click Safe Revert**: Revert to the stock factory configuration at any time from the WebUI.
@@ -130,14 +131,18 @@ HMR/
 ## 🚀 Installation & Getting Started
 
 ### 1. Flash the Module
-1. Download the flashable module package (`root_hotspot_manager_vanilla.zip`) from [Releases](https://github.com/uniqueselect/HMR/releases).
+1. Download the flashable module package from [Releases](https://github.com/uniqueselect/HMR/releases).
 2. Open **Magisk Manager**, **KernelSU**, or **APatch**.
 3. Navigate to **Modules** -> **Install from storage**.
-4. Select `root_hotspot_manager_vanilla.zip`.
-5. Once installation finishes, **no reboot is required**! You can launch the interface immediately.
+4. Select the downloaded module ZIP package.
+5. Once installation finishes, **reboot your device**.
+   > [!IMPORTANT]
+   > **A device reboot is required once after flashing or updating the module.** Magisk stages all module installations inside `/data/adb/modules_update/`. The module files (including the WebUI webroot and `/system/bin` binaries) are only committed to `/data/adb/modules/` during early boot.
+   > 
+   > However, **once your device boots up, NO reboots are EVER required when changing Wi-Fi hotspot settings**! All configuration changes apply live in real time.
 
 ### 2. Access the WebUI
-Because Magisk does not have a built-in web browser view:
+Because Magisk does not render WebUIs natively:
 1. Install **KSUWebUIStandalone** (recommended):
    - Download the APK from [KsuWebUIStandalone Releases](https://github.com/5ec1cff/KsuWebUIStandalone/releases).
    - Grant Root access when requested.
@@ -177,8 +182,11 @@ su -c hotspot-ctl logcat
 
 ## ❓ Frequently Asked Questions (FAQ)
 
-### Q1: Is a device reboot required after installing or modifying settings?
-**No.** Unlike legacy modules that rewrite `/data/misc/wifi/WifiConfigStore.xml`, HMR communicates directly with the live Android system framework via Binder IPC. Changes take effect dynamically without restarting Android or interrupting your workflow.
+### Q1: Why do I need to reboot after flashing/updating, but NOT when modifying hotspot settings?
+- **Module Flash / Update (Device Reboot Required)**:
+  When you install or update a module in Magisk, Magisk extracts files to `/data/adb/modules_update/<module_id>/` rather than the active directory. Magisk's boot daemon (`magiskinit`) only moves files from `modules_update` to `/data/adb/modules/<module_id>/` during early boot (`post-fs-data`). WebUI standalone hosts (such as **KSUWebUIStandalone** or **MMRL**) strictly search `/data/adb/modules/<module_id>/webroot/`. Until you reboot, the WebUI files either do not exist or remain on the previous version.
+- **Wi-Fi Hotspot Configuration (Zero Reboots Needed)**:
+  Unlike legacy root tweaks that overwrite `/data/misc/wifi/WifiConfigStore.xml` on disk (which requires an Android reboot to reload into memory), HMR communicates directly with Android's active `system_server` process via Binder IPC (`IWifiManager`). Changes to SSID, password, band, channel, stealth hidden mode, or client limits are accepted dynamically by Android's running Wi-Fi framework and apply immediately without rebooting.
 
 ### Q2: Why did we build our own DEX root helper (`hotspot_helper.jar`)?
 Android 11 tightened access to `WifiManager.setSoftApConfiguration()` by marking it `@hide` and `@SystemApi`. Standard shell commands like `cmd wifi` do not expose parameters for hidden SSIDs, band switching, or client caps. `hotspot_helper.jar` runs inside `app_process` with root UID (0) and uses reflection to access the official `SoftApConfiguration.Builder` API directly.
