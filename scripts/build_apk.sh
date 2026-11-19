@@ -3,9 +3,11 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APP_DIR="$SCRIPT_DIR/app"
-BUILD_DIR="$SCRIPT_DIR/build"
-OUT_APK="$SCRIPT_DIR/HMR-v1.2.4.apk"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+APP_DIR="$ROOT_DIR/app"
+MODULE_DIR="$ROOT_DIR/module"
+BUILD_DIR="$ROOT_DIR/build"
+OUT_APK="$ROOT_DIR/HMR-v1.2.4.apk"
 
 # Resolve Android SDK Tools
 AAPT2="${AAPT2:-$(which aapt2 2>/dev/null || find /tmp/notify-android-sdk/ -name aapt2 2>/dev/null | head -n 1)}"
@@ -26,11 +28,11 @@ rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR/gen" "$BUILD_DIR/classes" "$BUILD_DIR/dex"
 mkdir -p "$APP_DIR/src/main/assets/webroot" "$APP_DIR/src/main/assets/bin"
 
-# Sync assets
-cp -r "$SCRIPT_DIR/webroot/"* "$APP_DIR/src/main/assets/webroot/"
-cp "$SCRIPT_DIR/bin/hotspot-ctl" "$APP_DIR/src/main/assets/bin/"
-cp "$SCRIPT_DIR/bin/hotspot_helper.jar" "$APP_DIR/src/main/assets/bin/"
-cp "$SCRIPT_DIR/module.prop" "$APP_DIR/src/main/assets/"
+# Sync assets from module directory
+cp -r "$MODULE_DIR/webroot/"* "$APP_DIR/src/main/assets/webroot/"
+cp "$MODULE_DIR/bin/hotspot-ctl" "$APP_DIR/src/main/assets/bin/"
+cp "$MODULE_DIR/bin/hotspot_helper.jar" "$APP_DIR/src/main/assets/bin/"
+cp "$MODULE_DIR/module.prop" "$APP_DIR/src/main/assets/"
 
 # 1. Compile Resources
 "$AAPT2" compile --dir "$APP_DIR/src/main/res" -o "$BUILD_DIR/compiled_res.zip"
@@ -57,7 +59,7 @@ CLASS_FILES=$(find "$BUILD_DIR/classes" -name "*.class")
 # 5. Package classes.dex
 cd "$BUILD_DIR/dex"
 zip -u "$BUILD_DIR/unaligned.apk" classes.dex
-cd "$SCRIPT_DIR"
+cd "$ROOT_DIR"
 
 # 6. Zipalign
 "$ZIPALIGN" -p -f 4 "$BUILD_DIR/unaligned.apk" "$BUILD_DIR/aligned.apk"

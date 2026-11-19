@@ -26,12 +26,12 @@ The HMR user interface adheres to the modern KernelSU WebUI specification, style
 
 | 01. Master Configuration | 02. Connected Devices Monitor | 03. Safe Revert Engine |
 | :---: | :---: | :---: |
-| ![Master Config](docs/screenshots/01_dashboard_config.png) | ![Devices Monitor](docs/screenshots/02_devices_monitor.png) | ![Safe Revert](docs/screenshots/03_safe_revert.png) |
+| ![Master Config](screenshots/01_dashboard_config.png) | ![Devices Monitor](screenshots/02_devices_monitor.png) | ![Safe Revert](screenshots/03_safe_revert.png) |
 | **Hotspot Toggle, SSID, Band, Channel & Sliders** | **Real-Time Client Discovery & MAC/L3 Blocking** | **Factory Backup Inspection & Safe Revert** |
 
 | 04. System Diagnostics Engine | 05. Dev Lab & About |
 | :---: | :---: |
-| ![Diagnostics Modal](docs/screenshots/04_diagnostics_modal.png) | ![Dev Lab Modal](docs/screenshots/05_dev_lab_modal.png) |
+| ![Diagnostics Modal](screenshots/04_diagnostics_modal.png) | ![Dev Lab Modal](screenshots/05_dev_lab_modal.png) |
 | **Root, Binder IPC & MediaTek/QCOM Checks** | **Engine Specs, Versions & Crypto Donation Info** |
 
 ---
@@ -101,29 +101,33 @@ Traditional hotspot manipulation modules often attempt to parse and modify raw X
 
 ```text
 HMR/
-├── module.prop                 # Module identity, versioning, and description
-├── customize.sh               # Installation pre-flight check & factory backup
-├── uninstall.sh               # Automatic stock Wi-Fi restoration upon removal
-├── service.sh                 # Boot-time persistence for firewall rules
-├── action.sh                  # Magisk Action button launcher for KSUWebUIStandalone
-├── bin/
-│   ├── hotspot-ctl            # Multi-call CLI shell interface
-│   ├── hotspotctl             # Symlink helper
-│   └── hotspot_helper.jar     # Compiled Android DEX root helper (Java)
-├── src/                       # Java source code for the DEX root helper
-│   └── com/antigravity/hotspot/
-│       └── HotspotHelper.java # Binder reflection, client monitoring & AIDL control
-├── docs/                      # Documentation assets & screenshots
-│   └── screenshots/
-│       ├── 01_dashboard_config.png
-│       ├── 02_devices_monitor.png
-│       ├── 03_safe_revert.png
-│       ├── 04_diagnostics_modal.png
-│       └── 05_dev_lab_modal.png
-└── webroot/                   # Modern responsive WebUI dashboard
-    ├── index.html             # HTML5 structure with SVG icons & tab navigation
-    ├── style.css              # Cyber-slate dark theme styling
-    └── app.js                 # Bridge controller & mock preview provider
+├── app/                        # 📱 Standalone Android Root APK (Android Studio Project)
+│   ├── build.gradle            # App-level Gradle configuration (minSdk 30, targetSdk 34)
+│   ├── proguard-rules.pro      # R8 optimization rules
+│   └── src/main/
+│       ├── AndroidManifest.xml # Permissions, intents & activity declaration
+│       ├── java/com/uniqueselect/hmr/
+│       │   ├── MainActivity.java # WebView lifecycle, root check & dark theme bars
+│       │   └── KsuBridge.java    # KernelSU-spec asynchronous root bridge
+│       ├── res/                # Vector assets, adaptive launcher icons, layout, colors
+│       └── assets/             # Bundled WebUI and root engine binaries
+├── module/                     # ⚡ Magisk / KernelSU / APatch Flashable Module
+│   ├── module.prop             # Module identity (v1.2.4, code 124)
+│   ├── customize.sh            # Pre-flight check & factory Wi-Fi snapshot
+│   ├── uninstall.sh            # Automatic factory settings restoration
+│   ├── service.sh              # Boot firewall persistence
+│   ├── action.sh               # Magisk action launcher for KSUWebUIStandalone
+│   ├── bin/                    # hotspot-ctl & compiled hotspot_helper.jar (DEX)
+│   ├── src/                    # Java source code for the DEX root helper
+│   │   └── com/antigravity/hotspot/HotspotHelper.java
+│   └── webroot/                # Modern responsive WebUI dashboard (HTML/CSS/JS)
+├── screenshots/                # 📸 Mobile UI screenshots (Hero, Devices, Revert, Diag)
+├── scripts/                    # 🛠️ Build & Automation Scripts
+│   ├── build_apk.sh            # Standalone zero-dependency APK builder
+│   └── build_module.sh         # Flashable module ZIP packager
+├── build.gradle                # Root Gradle configuration
+├── settings.gradle             # Android Studio project settings
+└── README.md                   # Documentation, architecture guide & FAQ
 ```
 
 ---
