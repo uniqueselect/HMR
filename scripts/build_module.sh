@@ -4,11 +4,10 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
-MODULE_DIR="$ROOT_DIR/module"
 OUT_ZIP="$ROOT_DIR/root_hotspot_manager_vanilla.zip"
 
 echo "=== Packaging HMR Magisk / KernelSU / APatch Module ==="
-cd "$MODULE_DIR"
+cd "$ROOT_DIR"
 rm -f "$OUT_ZIP"
 
 zip -r9 "$OUT_ZIP" \
