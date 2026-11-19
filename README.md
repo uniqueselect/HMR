@@ -10,6 +10,10 @@ A modular, root-powered Wi-Fi SoftAP controller with a modern standalone WebUI d
 
 Developed and maintained by **[uniqueselect](https://github.com/uniqueselect)** & **Anti-Gravity**.
 
+> [!TIP]
+> **Active development is focused here on the `main` branch for the Standalone Android Root APK (`app/`).**  
+> For the Magisk / KernelSU / APatch flashable module source, switch to the **[`module` branch](https://github.com/uniqueselect/HMR/tree/module)**.
+
 ---
 
 > [!WARNING]
@@ -100,33 +104,22 @@ Traditional hotspot manipulation modules often attempt to parse and modify raw X
 ## 📦 Directory Structure
 
 ```text
-HMR/
+HMR/ (main branch)
 ├── app/                        # 📱 Standalone Android Root APK (Android Studio Project)
 │   ├── build.gradle            # App-level Gradle configuration (minSdk 30, targetSdk 34)
 │   ├── proguard-rules.pro      # R8 optimization rules
 │   └── src/main/
-│       ├── AndroidManifest.xml # Permissions, intents & activity declaration
+│       ├── AndroidManifest.xml # Permissions, intents & launch activity
 │       ├── java/com/uniqueselect/hmr/
 │       │   ├── MainActivity.java # WebView lifecycle, root check & dark theme bars
 │       │   └── KsuBridge.java    # KernelSU-spec asynchronous root bridge
 │       ├── res/                # Vector assets, adaptive launcher icons, layout, colors
-│       └── assets/             # Bundled WebUI and root engine binaries
-├── module/                     # ⚡ Magisk / KernelSU / APatch Flashable Module
-│   ├── module.prop             # Module identity (v1.2.4, code 124)
-│   ├── customize.sh            # Pre-flight check & factory Wi-Fi snapshot
-│   ├── uninstall.sh            # Automatic factory settings restoration
-│   ├── service.sh              # Boot firewall persistence
-│   ├── action.sh               # Magisk action launcher for KSUWebUIStandalone
-│   ├── bin/                    # hotspot-ctl & compiled hotspot_helper.jar (DEX)
-│   ├── src/                    # Java source code for the DEX root helper
-│   │   └── com/antigravity/hotspot/HotspotHelper.java
-│   └── webroot/                # Modern responsive WebUI dashboard (HTML/CSS/JS)
+│       └── assets/             # Bundled WebUI dashboard and root engine binaries
 ├── screenshots/                # 📸 Mobile UI screenshots (Hero, Devices, Revert, Diag)
 ├── scripts/                    # 🛠️ Build & Automation Scripts
-│   ├── build_apk.sh            # Standalone zero-dependency APK builder
-│   └── build_module.sh         # Flashable module ZIP packager
+│   └── build_apk.sh            # Standalone zero-dependency APK builder
 ├── build.gradle                # Root Gradle configuration
-├── settings.gradle             # Android Studio project settings
+├── settings.gradle             # Android Studio project settings (includes ':app')
 └── README.md                   # Documentation, architecture guide & FAQ
 ```
 

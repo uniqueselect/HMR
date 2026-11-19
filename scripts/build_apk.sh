@@ -5,7 +5,6 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 APP_DIR="$ROOT_DIR/app"
-MODULE_DIR="$ROOT_DIR/module"
 BUILD_DIR="$ROOT_DIR/build"
 OUT_APK="$ROOT_DIR/HMR-v1.2.4.apk"
 
@@ -26,13 +25,6 @@ echo "ANDROID_JAR: $ANDROID_JAR"
 # Prepare build dirs
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR/gen" "$BUILD_DIR/classes" "$BUILD_DIR/dex"
-mkdir -p "$APP_DIR/src/main/assets/webroot" "$APP_DIR/src/main/assets/bin"
-
-# Sync assets from module directory
-cp -r "$MODULE_DIR/webroot/"* "$APP_DIR/src/main/assets/webroot/"
-cp "$MODULE_DIR/bin/hotspot-ctl" "$APP_DIR/src/main/assets/bin/"
-cp "$MODULE_DIR/bin/hotspot_helper.jar" "$APP_DIR/src/main/assets/bin/"
-cp "$MODULE_DIR/module.prop" "$APP_DIR/src/main/assets/"
 
 # 1. Compile Resources
 "$AAPT2" compile --dir "$APP_DIR/src/main/res" -o "$BUILD_DIR/compiled_res.zip"
