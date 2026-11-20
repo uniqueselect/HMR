@@ -800,10 +800,19 @@ function renderConnectedClients(clients) {
     let html = "";
     clients.forEach((c) => {
         const isBlocked = c.is_blocked || false;
+        let displayName = (c.hostname || "").trim();
+        if (displayName.includes("@")) {
+            displayName = displayName.split("@")[1].trim();
+        }
+        if (!displayName || displayName === "null" || displayName === "*") {
+            const lastOctet = (c.ip && c.ip.includes(".")) ? c.ip.substring(c.ip.lastIndexOf('.') + 1) : "";
+            displayName = lastOctet ? `Device-${lastOctet}` : "Device";
+        }
+
         html += `
             <div class="client-row-mini">
                 <div class="client-mini-info">
-                    <span class="client-mini-name" title="${escapeHtml(c.hostname || "")}">${escapeHtml(c.hostname || "android@device")}</span>
+                    <span class="client-mini-name" title="${escapeHtml(displayName)}">${escapeHtml(displayName)}</span>
                     <span class="client-mini-details">${escapeHtml(c.ip || "")} · ${escapeHtml(c.mac || "")}</span>
                 </div>
                 <div>
@@ -1365,6 +1374,6 @@ function escapeHtml(str) {
 // Initial Boot
 window.addEventListener("DOMContentLoaded", () => {
     updateTerminalStatusPills("READY", "idle");
-    logToTerminal("Root Hotspot Manager v1.2.7 initialized. Ready.", "info");
+    logToTerminal("Root Hotspot Manager v1.3.0 initialized. Ready.", "info");
     refreshStatus();
 });
