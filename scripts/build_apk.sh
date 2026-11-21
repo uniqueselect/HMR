@@ -8,7 +8,7 @@ APP_DIR="$ROOT_DIR/app"
 BUILD_DIR="$ROOT_DIR/build"
 KEYSTORE_DIR="$ROOT_DIR/keystore"
 KEYSTORE="$KEYSTORE_DIR/release.jks"
-OUT_APK="$ROOT_DIR/HMR-v1.3.0.apk"
+OUT_APK="$ROOT_DIR/HMR-v1.3.3.apk"
 
 # Resolve Android SDK Tools
 AAPT2="${AAPT2:-$(which aapt2 2>/dev/null || find /tmp/notify-android-sdk/ -name aapt2 2>/dev/null | head -n 1)}"

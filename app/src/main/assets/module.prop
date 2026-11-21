@@ -1,6 +1,6 @@
 id=root_hotspot_manager
 name=Hotspot Manager
-version=v1.3.0
-versionCode=130
+version=v1.3.3
+versionCode=133
 author=uniqueselect & Anti-Gravity
 description=Hotspot Manager for A11+ GSIs, Custom Roms, Stock OEMs etc.

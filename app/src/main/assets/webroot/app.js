@@ -1374,6 +1374,6 @@ function escapeHtml(str) {
 // Initial Boot
 window.addEventListener("DOMContentLoaded", () => {
     updateTerminalStatusPills("READY", "idle");
-    logToTerminal("Root Hotspot Manager v1.3.0 initialized. Ready.", "info");
+    logToTerminal("Root Hotspot Manager v1.3.3 initialized. Ready.", "info");
     refreshStatus();
 });

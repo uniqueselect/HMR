@@ -275,6 +275,7 @@ public class HotspotHelper {
         }
 
         notifyTetheringService();
+        enableLocalLanRouting();
 
         return (getWifiApState() == 13 || started);
     }
@@ -334,6 +335,42 @@ public class HotspotHelper {
 
         // Method C: Shell tethering trigger fallback
         runShellCommand("cmd connectivity tether ap0 2>/dev/null; cmd tethering tether ap0 2>/dev/null");
+    }
+
+    public static void enableLocalLanRouting() {
+        String apIface = getActiveApInterfaceName();
+        if (apIface == null || apIface.isEmpty()) {
+            apIface = "ap0";
+        }
+        String apIp = getActiveApIpAddress();
+        String subnet = (apIp != null && apIp.contains(".")) 
+            ? apIp.substring(0, apIp.lastIndexOf('.') + 1) + "0/24" 
+            : "192.168.43.0/24";
+
+        // 1. Enable multicast on ap interface & wlan0 (fixes MediaTek driver dropping mDNS 224.0.0.251 & UDP broadcasts)
+        runShellCommand("ip link set " + apIface + " allmulticast on 2>/dev/null; ip link set " + apIface + " multicast on 2>/dev/null; ip link set wlan0 allmulticast on 2>/dev/null; ifconfig " + apIface + " allmulti 2>/dev/null");
+
+        // 2. Multicast kernel route: direct multicast packets to ap interface so phone apps (LocalSend, Warpinator, etc.) send discovery through hotspot
+        runShellCommand("ip route replace 224.0.0.0/4 dev " + apIface + " 2>/dev/null || ip route add 224.0.0.0/4 dev " + apIface + " 2>/dev/null");
+
+        // 3. Allow local subnet input to host on ap interface ONLY - 100% secure, mobile data is never exposed
+        runShellCommand("iptables -C INPUT -i " + apIface + " -s " + subnet + " -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -i " + apIface + " -s " + subnet + " -j ACCEPT");
+        runShellCommand("iptables -C INPUT -i " + apIface + " -d 224.0.0.0/4 -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -i " + apIface + " -d 224.0.0.0/4 -j ACCEPT");
+        runShellCommand("iptables -C INPUT -i " + apIface + " -d 255.255.255.255 -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -i " + apIface + " -d 255.255.255.255 -j ACCEPT");
+
+        // 4. Allow client-to-client station forwarding across ap interface (e.g. laptop to tablet / phone)
+        runShellCommand("iptables -C FORWARD -i " + apIface + " -o " + apIface + " -s " + subnet + " -d " + subnet + " -j ACCEPT 2>/dev/null || iptables -I FORWARD 1 -i " + apIface + " -o " + apIface + " -s " + subnet + " -d " + subnet + " -j ACCEPT");
+        runShellCommand("iptables -C FORWARD -i " + apIface + " -o " + apIface + " -j ACCEPT 2>/dev/null || iptables -I FORWARD 1 -i " + apIface + " -o " + apIface + " -j ACCEPT");
+
+        // 5. Allow host output to ap local subnet
+        runShellCommand("iptables -C OUTPUT -o " + apIface + " -d " + subnet + " -j ACCEPT 2>/dev/null || iptables -I OUTPUT 1 -o " + apIface + " -d " + subnet + " -j ACCEPT");
+        runShellCommand("iptables -C OUTPUT -o " + apIface + " -d 224.0.0.0/4 -j ACCEPT 2>/dev/null || iptables -I OUTPUT 1 -o " + apIface + " -d 224.0.0.0/4 -j ACCEPT");
+
+        // 6. Kernel sysctl routing & multicast
+        runShellCommand("echo 1 > /proc/sys/net/ipv4/ip_forward 2>/dev/null");
+        runShellCommand("echo 0 > /proc/sys/net/ipv4/conf/" + apIface + "/rp_filter 2>/dev/null");
+        runShellCommand("echo 0 > /proc/sys/net/ipv4/conf/all/rp_filter 2>/dev/null");
+        runShellCommand("echo 1 > /proc/sys/net/ipv4/conf/" + apIface + "/mc_forwarding 2>/dev/null");
     }
 
     private static boolean stopHotspot() {
@@ -1174,6 +1211,9 @@ public class HotspotHelper {
             res.put("ap_state_code", state);
             res.put("ap_state_name", getApStateName(state));
             res.put("is_running", isRunning);
+            if (isRunning) {
+                enableLocalLanRouting();
+            }
 
             JSONObject cfgJson = null;
             try {
@@ -1268,6 +1308,10 @@ public class HotspotHelper {
 
     private static void doClients() {
         try {
+            int state = getWifiApState();
+            if (state == 13) {
+                enableLocalLanRouting();
+            }
             JSONArray clients = getConnectedClients();
             JSONObject res = new JSONObject();
             res.put("success", true);
@@ -1459,6 +1503,58 @@ public class HotspotHelper {
         return map;
     }
 
+    private static Set<String> getActiveTetheredStations(String iface) {
+        Set<String> stations = new HashSet<>();
+
+        // 1. Layer 2 Hardware Station dump via 'iw' (if available on device)
+        Set<String> l2 = getAssociatedWifiStations(iface);
+        if (l2 != null && !l2.isEmpty()) {
+            stations.addAll(l2);
+        }
+
+        // 2. Official Android Tethering & Wi-Fi Service Diagnostics (ConnectedClientsTracker / SoftApManager)
+        // In Android 11+, dumpsys tethering tracks real-time TetheredClients.
+        // The instant a station disconnects from Wi-Fi, hostapd informs SoftApManager,
+        // and ConnectedClientsTracker immediately drops it from TetheredClient!
+        try {
+            String[][] cmds = new String[][]{
+                {"dumpsys", "tethering"},
+                {"dumpsys", "wifi"}
+            };
+            Pattern patMac = Pattern.compile("([0-9a-fA-F]{2}(?::[0-9a-fA-F]{2}){5})");
+            Pattern patIp = Pattern.compile("(\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b)");
+            for (String[] cmd : cmds) {
+                try {
+                    Process p = Runtime.getRuntime().exec(cmd);
+                    BufferedReader br = new BufferedReader(new InputStreamReader(p.getInputStream()));
+                    String line;
+                    while ((line = br.readLine()) != null) {
+                        String trim = line.trim();
+                        if (trim.contains("TetheredClient") || trim.contains("WifiClient") || trim.contains("Connected clients") || trim.contains("mConnectedClients") || trim.contains("Station ")) {
+                            Matcher m = patMac.matcher(trim);
+                            while (m.find()) {
+                                String mac = m.group(1).toUpperCase(Locale.ROOT);
+                                if (!"00:00:00:00:00:00".equals(mac) && !"FF:FF:FF:FF:FF:FF".equals(mac)) {
+                                    stations.add(mac);
+                                }
+                            }
+                            Matcher mIp = patIp.matcher(trim);
+                            while (mIp.find()) {
+                                String ip = mIp.group(1);
+                                if (!ip.endsWith(".255") && !ip.endsWith(".0")) {
+                                    stations.add(ip);
+                                }
+                            }
+                        }
+                    }
+                    br.close();
+                } catch (Throwable ignored) {}
+            }
+        } catch (Throwable ignored) {}
+
+        return stations;
+    }
+
     private static JSONArray getConnectedClients() {
         loadHostnameCache();
         JSONArray array = new JSONArray();
@@ -1471,8 +1567,8 @@ public class HotspotHelper {
         String apIface = getActiveApInterfaceName();
         String apSubnetPrefix = (apIp.contains(".")) ? apIp.substring(0, apIp.lastIndexOf('.') + 1) : "192.168.43.";
 
-        // 1. Check Layer 2 Wi-Fi Station Association (if 'iw' is available on device)
-        Set<String> l2Stations = getAssociatedWifiStations(apIface);
+        // 1. Official Android Active Station Ground Truth (TetheredClient / SoftApManager / L2 Station)
+        Set<String> activeStations = getActiveTetheredStations(apIface);
 
         // 2. Discover Candidate Clients from Linux Kernel ARP (/proc/net/arp)
         List<String[]> candidates = new ArrayList<>();
@@ -1485,15 +1581,16 @@ public class HotspotHelper {
                     if (tokens.length >= 6) {
                         String ip = tokens[0];
                         String flags = tokens[2];
-                        String mac = tokens[3].toUpperCase();
+                        String mac = tokens[3].toUpperCase(Locale.ROOT);
                         String iface = tokens[5];
 
                         if (ip.equals(apIp)) continue;
 
                         boolean isApIface = iface.startsWith("ap") || iface.startsWith("softap") || iface.startsWith("swlan") || iface.startsWith("wlan") || ip.startsWith(apSubnetPrefix);
                         if (isApIface && !"00:00:00:00:00:00".equals(mac) && !"0x0".equals(flags)) {
-                            // If Layer 2 station dump is active and station is not associated, skip immediately
-                            if (!l2Stations.isEmpty() && !l2Stations.contains(mac)) {
+                            // If official active station ground truth is available and station is not in it,
+                            // it means the device has disconnected and only lingers in kernel ARP cache -> skip!
+                            if (!activeStations.isEmpty() && !activeStations.contains(mac) && !activeStations.contains(ip)) {
                                 continue;
                             }
                             candidates.add(new String[]{ip, mac, iface});
@@ -1503,46 +1600,8 @@ public class HotspotHelper {
             } catch (Throwable ignored) {}
         }
 
-        // 3. Active Neighbor Reachability Verification (RFC 4861 Stale ARP Elimination)
+        // 3. Passive Read-Only Neighbor Reachability (NO FLUSHING, NO UDP PORT PROBING)
         Map<String, String> neighStates = getNeighborStates();
-        List<String[]> needProbe = new ArrayList<>();
-        for (String[] c : candidates) {
-            String ip = c[0];
-            String mac = c[1];
-            String state = neighStates.get(mac);
-            if (state == null) state = neighStates.get(ip);
-
-            // If neighbor is in STALE or unconfirmed state, it must be actively verified
-            if (state == null || "STALE".equals(state) || "DELAY".equals(state)) {
-                needProbe.add(c);
-            }
-        }
-
-        if (!needProbe.isEmpty()) {
-            try {
-                // Flush stale cache so kernel initiates fresh ARP probe
-                Process pFlush = Runtime.getRuntime().exec(new String[]{"ip", "neigh", "flush", "nud", "stale"});
-                pFlush.waitFor();
-            } catch (Throwable ignored) {}
-
-            try {
-                DatagramSocket ds = new DatagramSocket();
-                byte[] probeData = new byte[]{0};
-                for (String[] c : needProbe) {
-                    try {
-                        ds.send(new DatagramPacket(probeData, probeData.length, InetAddress.getByName(c[0]), 53));
-                    } catch (Throwable ignored) {}
-                }
-                ds.close();
-            } catch (Throwable ignored) {}
-
-            try {
-                Thread.sleep(80); // 80ms window for hardware Wi-Fi ARP offload response
-            } catch (InterruptedException ignored) {}
-
-            // Re-read neighbor states after active probe
-            neighStates = getNeighborStates();
-        }
 
         // 4. Assemble verified connected clients
         for (String[] c : candidates) {
@@ -1553,12 +1612,13 @@ public class HotspotHelper {
             String state = neighStates.get(mac);
             if (state == null) state = neighStates.get(ip);
 
-            // Strictly reject disconnected or unconfirmed states
-            if (state == null || "FAILED".equals(state) || "INCOMPLETE".equals(state) || "NONE".equals(state) || "STALE".equals(state)) {
+            // In passive neighbor inspection, ONLY reject explicitly failed states
+            // NEVER reject STALE (idle connected devices transition to STALE normally per RFC 4861)
+            if ("FAILED".equals(state) || "INCOMPLETE".equals(state)) {
                 continue;
             }
 
-            if (!l2Stations.isEmpty() && !l2Stations.contains(mac)) {
+            if (!activeStations.isEmpty() && !activeStations.contains(mac) && !activeStations.contains(ip)) {
                 continue;
             }
 

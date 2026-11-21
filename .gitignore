@@ -16,3 +16,6 @@ app/build/
 *.idsig
 *.zip
 local.properties
+
+# Local tracking and private notes (do NOT push to GitHub)
+PROJECT_TRACKING.txt
